@@ -1,0 +1,51 @@
+---
+sidebar_position: 0
+title: "Introduction"
+description: "Overview of ROS 2 fundamentals for humanoid robotics"
+---
+
+# ROS 2 Fundamentals for Humanoid Robotics
+
+This module introduces the Robot Operating System 2 (ROS 2)—the middleware that enables humanoid robots to coordinate their many software components into coherent autonomous behavior.
+
+## What You'll Learn
+
+- **ROS 2 Architecture**: Understanding nodes, topics, services, and Quality of Service (QoS) policies
+- **Python Development**: Building publishers, subscribers, and service nodes with rclpy
+- **Robot Description**: Defining humanoid robot structure using URDF (Unified Robot Description Format)
+
+## Prerequisites
+
+This module assumes familiarity with:
+- Basic Python programming
+- Fundamental robotics concepts (sensors, actuators, control)
+- Linux command line basics
+
+No prior ROS experience is required—we start from the fundamentals.
+
+## Why ROS 2 for Humanoids?
+
+Humanoid robots are among the most complex robotic systems ever built. A bipedal robot must simultaneously:
+- Process sensor data from dozens of joints, cameras, and IMUs
+- Plan motions that maintain balance
+- React to environmental changes in real-time
+- Coordinate arm movements with locomotion
+
+ROS 2 provides the communication infrastructure that makes this coordination possible. It acts as the robot's "nervous system," enabling independent software components to share data and work together.
+
+## Module Structure
+
+| Chapter | Topic | Key Concepts |
+|---------|-------|--------------|
+| 1 | ROS 2 as Robotic Nervous System | Nodes, topics, services, QoS |
+| 2 | Building ROS 2 Nodes with Python | rclpy, publishers, subscribers |
+| 3 | Describing Humanoid Robots with URDF | Links, joints, visualization |
+
+## Code Examples
+
+Complete, runnable code examples are available in the `/static/code-examples/module-1/` directory:
+- `publisher.py` — Humanoid status publisher
+- `subscriber.py` — Humanoid status subscriber
+- `service_server.py` — Joint calculator service
+- `service_client.py` — Service client example
+- `humanoid_torso.urdf` — Simple humanoid arm description

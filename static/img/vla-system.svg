@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- VLA (Vision-Language-Action) Icon -->
+
+  <!-- Speech bubble (Language) -->
+  <path d="M30 40 Q30 25 50 25 L90 25 Q110 25 110 40 L110 70 Q110 85 90 85 L60 85 L45 100 L50 85 L50 85 Q30 85 30 70 Z" fill="#60a5fa"/>
+  <text x="70" y="58" font-family="Arial" font-size="12" fill="white" text-anchor="middle">"Get cup"</text>
+
+  <!-- Eye/Camera (Vision) -->
+  <circle cx="150" cy="55" r="30" fill="#3b82f6"/>
+  <circle cx="150" cy="55" r="20" fill="white"/>
+  <circle cx="150" cy="55" r="12" fill="#1e40af"/>
+  <circle cx="145" cy="50" r="4" fill="white"/>
+
+  <!-- Arrow down to action -->
+  <path d="M70 105 L100 130 L130 105" stroke="#3b82f6" stroke-width="4" fill="none"/>
+  <line x1="100" y1="110" x2="100" y2="140" stroke="#3b82f6" stroke-width="4"/>
+
+  <!-- Robot arm (Action) -->
+  <rect x="60" y="145" width="80" height="15" rx="4" fill="#1e40af"/>
+  <rect x="130" y="140" width="25" height="25" rx="4" fill="#3b82f6"/>
+  <!-- Gripper -->
+  <rect x="155" y="142" width="15" height="8" rx="2" fill="#60a5fa"/>
+  <rect x="155" y="155" width="15" height="8" rx="2" fill="#60a5fa"/>
+  <!-- Cup being grabbed -->
+  <path d="M172 145 L180 145 L178 162 L174 162 Z" fill="#fbbf24"/>
+  <path d="M180 148 Q185 152 180 158" stroke="#fbbf24" stroke-width="2" fill="none"/>
+</svg>

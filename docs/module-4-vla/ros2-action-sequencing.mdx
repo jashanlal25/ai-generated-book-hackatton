@@ -1,0 +1,152 @@
+---
+sidebar_position: 4
+title: "ROS 2 Action Sequencing"
+description: "Translating LLM plans to executable robot actions"
+---
+
+# ROS 2 Action Sequencing
+
+## From Plan to Execution
+
+The LLM planner outputs a JSON action sequence. The next step is translating this abstract plan into concrete robot behaviors through ROS 2's action interface.
+
+The pattern is straightforward: a **VLA Executor** node consumes the action sequence and dispatches each action to the appropriate ROS 2 action server. Action servers for navigation (Nav2), manipulation (MoveIt 2), and perception run continuously, waiting for goal requests.
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                 ROS 2 ACTION EXECUTION                             │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│   LLM Output (JSON):                                               │
+│   [navigate→kitchen, detect→bottle, grasp→id, navigate→user]      │
+│                           │                                        │
+│                           ▼                                        │
+│   ┌────────────────────────────────────────────────────────────┐  │
+│   │                    VLA EXECUTOR NODE                        │  │
+│   │                                                             │  │
+│   │   for action in plan:                                       │  │
+│   │       client = get_client(action.type)                      │  │
+│   │       goal = build_goal(action)                             │  │
+│   │       result = await client.send_goal_async(goal)           │  │
+│   │       if not result.success:                                │  │
+│   │           handle_error(action, result)                      │  │
+│   │                                                             │  │
+│   └────────────────────────────────────────────────────────────┘  │
+│                           │                                        │
+│           ┌───────────────┼───────────────┐                       │
+│           ▼               ▼               ▼                       │
+│   ┌──────────────┐ ┌──────────────┐ ┌──────────────┐             │
+│   │    Nav2      │ │  Perception  │ │   MoveIt 2   │             │
+│   │   Server     │ │   Server     │ │   Server     │             │
+│   └──────────────┘ └──────────────┘ └──────────────┘             │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+**Asynchronous execution** is critical. Robot actions take time—navigation might take 30 seconds, manipulation several seconds. The executor sends goals without blocking, receiving feedback during execution and results upon completion.
+
+## Action Server Mapping
+
+Each abstract action type maps to a specific ROS 2 action server and message type:
+
+| Action Type | ROS 2 Server | Action Interface | Description |
+|-------------|--------------|------------------|-------------|
+| `navigate` | Nav2 | `NavigateToPose` | Move to target location |
+| `detect` | Perception | `DetectObjects` | Find object in camera view |
+| `grasp` | MoveIt 2 | `MoveGroupAction` | Plan and execute arm motion |
+| `place` | MoveIt 2 | `MoveGroupAction` | Plan and execute placement |
+| `handover` | Custom | `Handover` | Extend arm for human to take |
+
+The VLA executor maintains action clients for each server type. When processing a plan, it selects the appropriate client, constructs the goal message, and sends the request.
+
+**Perception integration** requires special handling. The `detect` action returns object IDs and poses that subsequent actions reference. The executor must store detection results and substitute them into later goals (e.g., replacing `$detected_id` with the actual object ID).
+
+## Action Client Pattern
+
+ROS 2 action clients follow a standard pattern covered in Module 1. For VLA execution:
+
+**1. Create clients during initialization**:
+Each action type needs a dedicated client configured with the correct action interface.
+
+**2. Wait for server availability**:
+Before sending goals, verify the action server is running. A missing server indicates configuration problems.
+
+**3. Send goal asynchronously**:
+Non-blocking goal submission returns a future that resolves when the action completes.
+
+**4. Handle feedback during execution**:
+Navigation provides pose updates; MoveIt provides trajectory progress. Feedback enables monitoring and visualization.
+
+**5. Process result**:
+Success allows proceeding to the next action. Failure triggers error handling.
+
+This pattern provides flexibility—actions can be cancelled, preempted, or monitored without blocking the main executor loop.
+
+## Behavior Trees for Sequencing
+
+For complex task orchestration, **Behavior Trees (BTs)** offer advantages over simple sequential execution:
+
+**Why Behavior Trees?**
+- More flexible than state machines for handling failures
+- Easy to add retry logic, fallbacks, and parallel actions
+- Nav2 uses BTs internally—consistent architectural pattern
+- BT.ROS2 provides standard ROS 2 integration (Macenski et al., 2020)
+
+**Key BT node types**:
+
+| Node Type | Behavior | Use Case |
+|-----------|----------|----------|
+| **Sequence** | Execute children in order; fail if any fails | Normal action sequence |
+| **Fallback** | Try children until one succeeds | Error recovery alternatives |
+| **Parallel** | Execute children simultaneously | Concurrent perception/planning |
+| **Retry** | Repeat child until success or limit | Handling transient failures |
+
+A VLA executor could dynamically construct a behavior tree from the LLM plan, adding retry and fallback nodes around potentially failing actions.
+
+## Error Handling
+
+Robust autonomy requires handling failures at every step:
+
+**Navigation failure**:
+- Cause: Path blocked, localization lost, timeout
+- Recovery: Request replan with intermediate waypoints; rotate to scan for obstacles; request human help
+
+**Detection failure**:
+- Cause: Object not visible, occlusion, lighting
+- Recovery: Move to alternative viewpoint; request object location from user; expand search area
+
+**Grasp failure**:
+- Cause: Slip, collision, planning failure
+- Recovery: Try different grasp pose; use different grasp type (pinch vs. power); approach from different angle
+
+**Ambiguity**:
+- Cause: Multiple matching objects ("the cup" when several exist)
+- Recovery: Query human for clarification ("Which cup—the red one or the blue one?")
+
+Error handling transforms brittle demo-quality systems into robust deployed robots. Each failure mode requires explicit detection and recovery logic.
+
+## Summary and Key Takeaways
+
+ROS 2 action sequencing bridges LLM planning and physical execution:
+
+- **VLA executor** dispatches plan actions to appropriate action servers
+- **Action client pattern** provides async goal submission with feedback
+- **Behavior Trees** enable flexible orchestration with failure handling
+- **Error recovery** is essential for robust autonomous operation
+
+The next section synthesizes all concepts in a complete capstone scenario.
+
+## Self-Check Questions
+
+1. How does the VLA executor handle perception results needed by later actions?
+2. What advantages do Behavior Trees offer over simple sequential execution?
+3. What are three different recovery strategies for grasp failures?
+4. Why is asynchronous action execution important for robot systems?
+
+## References
+
+Macenski, S., Martin, F., White, R., & Ginés Clavero, J. (2020). The Marathon 2: A navigation system. *IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)*, 2718-2725.
+
+Open Robotics. (2024). *ROS 2 Actions documentation*. https://docs.ros.org/en/humble/Tutorials/Beginner-CLI-Tools/Understanding-ROS2-Actions/Understanding-ROS2-Actions.html
+
+MoveIt. (2024). *MoveIt 2 documentation*. https://moveit.ros.org/

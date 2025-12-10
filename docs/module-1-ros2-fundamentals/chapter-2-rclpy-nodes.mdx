@@ -1,0 +1,275 @@
+---
+sidebar_position: 2
+title: "Building ROS 2 Nodes with Python"
+description: "Creating publishers, subscribers, and services using rclpy"
+---
+
+# Building ROS 2 Nodes with Python
+
+## Introduction to rclpy
+
+The **rclpy** library is the Python client library for ROS 2. Python is an excellent choice for humanoid robot development because of its seamless integration with AI/ML frameworks like PyTorch and TensorFlow—essential for modern perception and planning algorithms.
+
+Every rclpy program follows a standard initialization pattern:
+
+```python
+import rclpy
+from rclpy.node import Node
+
+def main():
+    rclpy.init()          # Initialize the ROS 2 client library
+    node = Node('my_node') # Create a node
+    rclpy.spin(node)      # Process callbacks until shutdown
+    node.destroy_node()   # Clean up the node
+    rclpy.shutdown()      # Shutdown the client library
+
+if __name__ == '__main__':
+    main()
+```
+
+The `rclpy.init()` function initializes the ROS 2 middleware, and `rclpy.shutdown()` performs cleanup. Between these calls, `rclpy.spin()` keeps the node running and processes incoming messages and timer callbacks.
+
+## Creating a Publisher Node
+
+A publisher sends messages to a topic at regular intervals or in response to events. Let's create a node that publishes humanoid status updates.
+
+```python title="publisher.py"
+#!/usr/bin/env python3
+"""
+Humanoid Status Publisher
+Publishes periodic status messages demonstrating the ROS 2 publisher pattern.
+"""
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class HumanoidStatusPublisher(Node):
+    def __init__(self):
+        super().__init__('humanoid_status_publisher')
+        self.publisher_ = self.create_publisher(String, 'humanoid_status', 10)
+        self.timer = self.create_timer(1.0, self.timer_callback)
+        self.count = 0
+
+    def timer_callback(self):
+        msg = String()
+        msg.data = f'Humanoid status update #{self.count}'
+        self.publisher_.publish(msg)
+        self.get_logger().info(f'Publishing: "{msg.data}"')
+        self.count += 1
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = HumanoidStatusPublisher()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+Key elements of this publisher:
+
+- **Node class inheritance**: We subclass `Node` to create our custom node
+- **create_publisher()**: Creates a publisher for `String` messages on the `humanoid_status` topic with a queue size of 10
+- **create_timer()**: Fires the callback every 1.0 seconds
+- **publish()**: Sends the message to all subscribers
+
+The queue size (10) determines how many messages are buffered if subscribers cannot keep up. For humanoid joint state publishing at 100 Hz, you might use a smaller queue to prevent stale data accumulation.
+
+## Creating a Subscriber Node
+
+A subscriber receives messages from a topic and processes them in a callback function.
+
+```python title="subscriber.py"
+#!/usr/bin/env python3
+"""
+Humanoid Status Subscriber
+Receives and logs status messages demonstrating the ROS 2 subscriber pattern.
+"""
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
+
+class HumanoidStatusSubscriber(Node):
+    def __init__(self):
+        super().__init__('humanoid_status_subscriber')
+        self.subscription = self.create_subscription(
+            String,
+            'humanoid_status',
+            self.listener_callback,
+            10)
+
+    def listener_callback(self, msg):
+        self.get_logger().info(f'Received: "{msg.data}"')
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = HumanoidStatusSubscriber()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+The subscriber uses `create_subscription()` with:
+- **Message type**: `String` (must match the publisher)
+- **Topic name**: `humanoid_status` (must match the publisher)
+- **Callback**: Function called when messages arrive
+- **QoS**: Queue size of 10
+
+The callback receives each message as it arrives. For real humanoid applications, this callback might update a state estimate, trigger control actions, or log data for analysis.
+
+## Running Publisher and Subscriber Together
+
+To see the communication in action, run each node in a separate terminal:
+
+```
+┌─────────────────────┐          ┌─────────────────────┐
+│  Terminal 1         │          │  Terminal 2         │
+│                     │          │                     │
+│  python3            │          │  python3            │
+│  publisher.py       │          │  subscriber.py      │
+│                     │          │                     │
+│  [INFO] Publishing: │  ───▶    │  [INFO] Received:   │
+│  "status update #0" │  topic   │  "status update #0" │
+│  "status update #1" │  ───▶    │  "status update #1" │
+└─────────────────────┘          └─────────────────────┘
+```
+
+**Terminal 1:**
+```bash
+python3 publisher.py
+```
+
+**Terminal 2:**
+```bash
+python3 subscriber.py
+```
+
+You should see the subscriber logging each message the publisher sends. Start and stop either node—they operate independently. You can even run multiple subscribers, and each will receive all messages.
+
+**Troubleshooting tips:**
+- Ensure both nodes use the exact same topic name
+- Check that message types match (both using `std_msgs.msg.String`)
+- Verify ROS 2 is sourced in both terminals: `source /opt/ros/humble/setup.bash`
+
+## Creating a Service Server
+
+Services provide request-response communication. Here's a service that simulates joint torque calculation:
+
+```python title="service_server.py"
+#!/usr/bin/env python3
+"""
+Joint Calculator Service Server
+Demonstrates ROS 2 service pattern with a simple calculation service.
+"""
+import rclpy
+from rclpy.node import Node
+from example_interfaces.srv import AddTwoInts
+
+class JointCalculatorService(Node):
+    def __init__(self):
+        super().__init__('joint_calculator_service')
+        self.srv = self.create_service(
+            AddTwoInts,
+            'calculate_joint_torque',
+            self.calculate_callback)
+        self.get_logger().info('Joint calculator service ready')
+
+    def calculate_callback(self, request, response):
+        response.sum = request.a + request.b
+        self.get_logger().info(
+            f'Request: {request.a} + {request.b} = {response.sum}')
+        return response
+
+def main(args=None):
+    rclpy.init(args=args)
+    node = JointCalculatorService()
+    rclpy.spin(node)
+    node.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+The service server:
+- **create_service()**: Registers the service with a name and callback
+- **Service type**: `AddTwoInts` defines request (two integers) and response (sum)
+- **Callback**: Receives request, populates response, returns it
+
+## Creating a Service Client
+
+The client sends requests to the service and handles responses:
+
+```python title="service_client.py"
+#!/usr/bin/env python3
+"""
+Joint Calculator Service Client
+Demonstrates making service calls in ROS 2.
+"""
+import rclpy
+from rclpy.node import Node
+from example_interfaces.srv import AddTwoInts
+
+class JointCalculatorClient(Node):
+    def __init__(self):
+        super().__init__('joint_calculator_client')
+        self.cli = self.create_client(AddTwoInts, 'calculate_joint_torque')
+        while not self.cli.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for service...')
+        self.req = AddTwoInts.Request()
+
+    def send_request(self, a, b):
+        self.req.a = a
+        self.req.b = b
+        return self.cli.call_async(self.req)
+
+def main(args=None):
+    rclpy.init(args=args)
+    client = JointCalculatorClient()
+    future = client.send_request(10, 5)
+    rclpy.spin_until_future_complete(client, future)
+    result = future.result()
+    client.get_logger().info(f'Result: {result.sum}')
+    client.destroy_node()
+    rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
+```
+
+Key client patterns:
+- **wait_for_service()**: Blocks until the server is available
+- **call_async()**: Sends request without blocking (returns a Future)
+- **spin_until_future_complete()**: Waits for the response
+
+For humanoid robots, service clients might request inverse kinematics solutions, trigger calibration procedures, or query current joint limits.
+
+## Summary and Next Steps
+
+You have learned the fundamental rclpy patterns for ROS 2 communication:
+
+| Pattern | Use Case | Method |
+|---------|----------|--------|
+| **Publisher** | Continuous data output | `create_publisher()` |
+| **Subscriber** | Continuous data input | `create_subscription()` |
+| **Service Server** | Handle requests | `create_service()` |
+| **Service Client** | Make requests | `create_client()` |
+
+**Common debugging tips:**
+- Use `ros2 topic list` to see active topics
+- Use `ros2 topic echo /topic_name` to view messages
+- Use `ros2 service list` to see available services
+- Check logger output for errors: `self.get_logger().error('message')`
+
+In the next chapter, you will learn to describe humanoid robot structure using URDF, enabling visualization and simulation of your robot.
+
+## References
+
+Open Robotics. (2024). *rclpy API reference*. https://docs.ros2.org/humble/api/rclpy/
+
+Open Robotics. (2024). *ROS 2 Humble Hawksbill documentation*. https://docs.ros.org/en/humble/

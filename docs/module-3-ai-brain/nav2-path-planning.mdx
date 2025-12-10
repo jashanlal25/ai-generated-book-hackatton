@@ -1,0 +1,137 @@
+---
+sidebar_position: 3
+title: "Nav2 Path Planning"
+description: "ROS 2 navigation stack and bipedal humanoid navigation challenges"
+---
+
+# Nav2 Path Planning
+
+## Nav2 Architecture
+
+Nav2 is the navigation stack for ROS 2—a modular framework that takes a robot from its current position to a goal while avoiding obstacles. It represents years of community development and is used by robots from warehouse AMRs to research humanoids (Macenski et al., 2020).
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    NAV2 ARCHITECTURE                         │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   ┌─────────────┐    ┌─────────────┐    ┌─────────────┐     │
+│   │   Planner   │───▶│ Controller  │───▶│  Recovery   │     │
+│   │   Server    │    │   Server    │    │   Server    │     │
+│   └─────────────┘    └─────────────┘    └─────────────┘     │
+│         │                   │                  │             │
+│         │ Global            │ Local            │ Stuck       │
+│         │ Path              │ Trajectory       │ Behaviors   │
+│         │                   │                  │             │
+│         ▼                   ▼                  ▼             │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │               Behavior Tree (BT)                     │   │
+│   │    Orchestrates planner → controller → recovery      │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                            │                                 │
+│                            ▼                                 │
+│                    ┌───────────────┐                        │
+│                    │   Costmaps    │                        │
+│                    │ (Obstacle Rep)│                        │
+│                    └───────────────┘                        │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+The architecture separates concerns into distinct servers:
+
+**Planner Server**: Computes a global path from current position to goal. Uses algorithms like A*, Dijkstra, or Theta* on a costmap to find collision-free routes. Runs when a new goal is received or when the current path is blocked.
+
+**Controller Server**: Follows the global path with a local trajectory controller. Reacts to dynamic obstacles and small deviations, generating velocity commands that track the path while avoiding collisions. Runs at high frequency (20-50 Hz).
+
+**Recovery Server**: Handles stuck situations—when the robot cannot make progress. Recovery behaviors include spinning in place, backing up, or clearing the costmap when sensor noise creates phantom obstacles.
+
+**Behavior Trees** orchestrate these servers. Instead of hard-coded state machines, Nav2 uses behavior trees to define navigation logic: "Try to plan a path. If successful, follow it. If the controller fails, try recovery. If recovery fails, abort." This modularity lets developers customize navigation behavior without rewriting core algorithms.
+
+## Costmaps
+
+Costmaps are the obstacle representation that planners and controllers use to avoid collisions. A costmap assigns a "cost" to each cell in a 2D grid:
+- **Free space**: Cost 0, safe to traverse
+- **Lethal obstacles**: Cost 254, collision guaranteed
+- **Inflation zones**: Costs 1-253, proximity to obstacles
+
+```
+┌───────────────────────────────────────┐
+│     COSTMAP INFLATION EXAMPLE         │
+├───────────────────────────────────────┤
+│                                       │
+│   Key:  █ = Lethal (obstacle)        │
+│         ▓ = High cost (close)        │
+│         ░ = Medium cost              │
+│         · = Free space               │
+│                                       │
+│   · · · · · · · · · · · · · · · · ·  │
+│   · · · · ░ ░ ░ ░ ░ ░ ░ · · · · · ·  │
+│   · · · ░ ░ ▓ ▓ ▓ ▓ ▓ ░ ░ · · · · ·  │
+│   · · · ░ ▓ ▓ █ █ █ ▓ ▓ ░ · · · · ·  │
+│   · · · ░ ▓ ▓ █ █ █ ▓ ▓ ░ · · · · ·  │
+│   · · · ░ ▓ ▓ █ █ █ ▓ ▓ ░ · · · · ·  │
+│   · · · ░ ░ ▓ ▓ ▓ ▓ ▓ ░ ░ · · · · ·  │
+│   · · · · ░ ░ ░ ░ ░ ░ ░ · · · · · ·  │
+│   · · · · · · · · · · · · · · · · ·  │
+│                                       │
+└───────────────────────────────────────┘
+```
+
+**Global costmap**: Covers the entire known environment. Updated from the map (static) and sensors (dynamic). Used by the planner for long-range path planning.
+
+**Local costmap**: A small window around the robot. Updated at high frequency from sensor data. Used by the controller for reactive obstacle avoidance.
+
+**Inflation radius**: Creates a buffer zone around obstacles. Setting this correctly is crucial—too small and the robot clips obstacles; too large and it cannot navigate tight spaces. For humanoid robots, this must account for arm swing and stepping width.
+
+## Bipedal Navigation Challenges
+
+Nav2 was originally designed for wheeled robots, which have different motion constraints than bipedal humanoids. Understanding these differences is essential for humanoid navigation (Kajita et al., 2014).
+
+| Aspect | Wheeled Robot | Bipedal Humanoid |
+|--------|---------------|------------------|
+| **Motion** | Continuous rolling | Discrete footsteps |
+| **Stability** | Inherently stable | Actively balanced |
+| **Terrain** | Limited to smooth surfaces | Can handle steps, slopes |
+| **Velocity control** | Direct wheel commands | Through balance controller |
+| **Failure mode** | Gets stuck | Falls over |
+
+**Footstep Planning**: Wheeled robots plan paths as continuous curves. Bipedal robots must plan sequences of discrete footsteps. Each step must consider foot placement on stable ground, collision with obstacles, and reachability from the previous stance.
+
+**Balance and Stability**: Wheeled robots are passively stable—they won't tip over when stopped. Humanoids are dynamically stable—they must actively maintain balance. Navigation commands must not exceed what the balance controller can handle.
+
+**Zero Moment Point (ZMP)**: A key stability criterion for walking robots. ZMP is the point where the sum of all ground reaction forces creates zero moment about the support polygon. Walking patterns must keep ZMP within the foot (single support) or between feet (double support).
+
+**Terrain Assessment**: Humanoids can climb stairs and traverse uneven terrain that would stop wheeled robots. But they must assess terrain suitability—identifying foothold locations, detecting steps, and avoiding surfaces too steep or slippery.
+
+Adapting Nav2 for humanoids typically involves:
+1. Custom controller plugins that interface with the balance system
+2. Modified costmaps that represent footstep viability, not just collision
+3. Footstep planners that replace continuous path planners
+4. Terrain classifiers that identify safe stepping surfaces
+
+## Summary and Key Takeaways
+
+Nav2 provides the decision-making layer for autonomous navigation:
+
+- **Modular architecture** separates planning, control, and recovery
+- **Behavior trees** orchestrate navigation with customizable logic
+- **Costmaps** represent obstacles with inflation for safety margins
+- **Bipedal challenges** require footstep planning, balance integration, and terrain assessment
+
+Combined with VSLAM for localization, Nav2 enables a robot to navigate from point A to point B while avoiding obstacles. In the next section, you will see how Isaac Sim, Isaac ROS, and Nav2 work together as a complete system.
+
+## Self-Check Questions
+
+1. What is the difference between the planner server and controller server in Nav2?
+2. How does costmap inflation improve navigation safety?
+3. What are two key differences between wheeled and bipedal robot navigation?
+4. What is ZMP, and why does it matter for humanoid walking?
+
+## References
+
+Macenski, S., Martin, F., White, R., & Ginés Clavero, J. (2020). The Marathon 2: A navigation system. *IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)*, 2718-2725.
+
+Kajita, S., Hirukawa, H., Harada, K., & Yokoi, K. (2014). *Introduction to humanoid robotics*. Springer.
+
+Open Robotics. (2024). *Nav2 documentation*. https://navigation.ros.org/

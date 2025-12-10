@@ -1,0 +1,135 @@
+---
+sidebar_position: 2
+title: "Voice-to-Action with Whisper"
+description: "Speech recognition for natural robot command interfaces"
+---
+
+# Voice-to-Action with Whisper
+
+## Speech Recognition for Robotics
+
+Natural language is the most intuitive interface for human-robot interaction. Instead of programming commands or pressing buttons, users simply speak: "Pick up that cup" or "Follow me to the kitchen." Speech recognition translates these verbal instructions into text that downstream systems can process.
+
+Speech recognition in robotics faces unique challenges:
+
+**Background noise**: Factories, kitchens, and outdoor environments are rarely quiet. Motors, fans, and other people create interference that degrades recognition accuracy.
+
+**Varied speech**: Accents, speaking speeds, and vocabulary differ widely among users. A home robot must understand children and elderly users, native and non-native speakers.
+
+**Real-time requirements**: Commands must be processed quickly—a robot asked to "stop" cannot wait several seconds to understand the instruction.
+
+Modern transformer-based automatic speech recognition (ASR) addresses these challenges. OpenAI's Whisper has emerged as a leading solution, offering robust multilingual recognition that handles noise and accent variation remarkably well (Radford et al., 2023).
+
+## Whisper Architecture Overview
+
+Whisper is an encoder-decoder transformer trained on 680,000 hours of multilingual audio. This massive training dataset gives Whisper robustness that specialized models often lack.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                 VOICE COMMAND PIPELINE                           │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   ┌───────────┐    ┌───────────┐    ┌───────────┐               │
+│   │Microphone │───▶│  Audio    │───▶│  Whisper  │               │
+│   │           │    │  Capture  │    │   STT     │               │
+│   └───────────┘    └───────────┘    └───────────┘               │
+│                                            │                     │
+│                                            │  "pick up the       │
+│                                            │   red cup"          │
+│                                            ▼                     │
+│                                     ┌───────────┐               │
+│                                     │Confidence │               │
+│                                     │  Filter   │               │
+│                                     └───────────┘               │
+│                                            │                     │
+│                                            │  if conf > 0.8      │
+│                                            ▼                     │
+│                                     ┌───────────┐               │
+│                                     │   LLM     │               │
+│                                     │  Planner  │               │
+│                                     └───────────┘               │
+│                                            │                     │
+│                                            ▼                     │
+│                                     ┌───────────┐               │
+│                                     │  Action   │               │
+│                                     │  Sequence │               │
+│                                     └───────────┘               │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Model sizes** trade latency for accuracy:
+
+| Model | Parameters | Relative Speed | Use Case |
+|-------|------------|----------------|----------|
+| tiny | 39M | 32x | Real-time on edge devices |
+| base | 74M | 16x | Good balance for robots |
+| small | 244M | 6x | Improved accuracy |
+| medium | 769M | 2x | Near-optimal accuracy |
+| large | 1.5B | 1x | Maximum accuracy |
+
+For humanoid robots, the "small" or "base" models often provide the best tradeoff. They run in real-time on NVIDIA Jetson hardware while maintaining acceptable accuracy for command recognition.
+
+**Audio processing**: Whisper expects 16kHz audio in 30-second chunks. The encoder processes audio into embeddings; the decoder generates text tokens autoregressively. Transcription typically completes within the chunk duration, enabling near-real-time operation.
+
+**Multilingual support**: Whisper handles 99 languages, making it suitable for international deployments without model changes.
+
+## ROS 2 Integration Pattern
+
+Integrating Whisper into a ROS 2 robot follows a standard node architecture:
+
+**Audio Capture Node**:
+- Subscribes to microphone hardware
+- Publishes raw audio to `/audio_raw` topic
+- Handles sample rate conversion if needed
+
+**Whisper STT Node**:
+- Subscribes to `/audio_raw`
+- Runs Whisper inference on received chunks
+- Publishes transcribed text + confidence to `/voice_command`
+
+**VLA Planner Node**:
+- Subscribes to `/voice_command`
+- Filters by confidence threshold
+- Passes valid commands to LLM planning
+
+This separation of concerns allows each component to be developed, tested, and replaced independently. The Whisper node can be swapped for alternative ASR systems without changing other nodes.
+
+## Confidence Filtering
+
+Raw ASR output includes confidence scores indicating transcription certainty. Filtering by confidence prevents misrecognized commands from triggering robot actions.
+
+**Threshold selection**: A confidence threshold of 0.8 (80%) provides a reasonable balance. Lower thresholds increase false positives (acting on wrong commands); higher thresholds increase false negatives (ignoring valid commands).
+
+**Clarification fallback**: When confidence falls between 0.5 and 0.8, the robot can request clarification:
+- "Did you say 'pick up the red cup'?"
+- User confirms or corrects
+- Confirmed command proceeds; corrections trigger re-recognition
+
+**Noise rejection**: Very low confidence (below 0.3) typically indicates background noise rather than speech. These inputs are silently discarded.
+
+For safety-critical commands (emergency stop, dangerous actions), higher thresholds or explicit confirmation may be appropriate regardless of confidence.
+
+## Summary and Key Takeaways
+
+Speech recognition enables natural robot command interfaces:
+
+- **Whisper** provides robust, multilingual ASR suitable for robotics
+- **Model size tradeoffs** balance latency and accuracy for deployment constraints
+- **ROS 2 integration** follows standard node patterns with audio and text topics
+- **Confidence filtering** prevents misrecognized commands from executing
+
+With voice input converted to text, the next step is understanding what the command means and how to accomplish it. The next section covers LLM-based cognitive planning.
+
+## Self-Check Questions
+
+1. What makes speech recognition challenging in robotics environments?
+2. How do Whisper model sizes trade off against each other?
+3. Why is confidence filtering important for robot safety?
+4. What happens when transcription confidence is moderate (0.5-0.8)?
+
+## References
+
+Radford, A., Kim, J. W., Xu, T., Brockman, G., McLeavey, C., & Sutskever, I. (2023). Robust speech recognition via large-scale weak supervision. *International Conference on Machine Learning*, 28492-28518.
+
+OpenAI. (2024). *Whisper documentation*. https://github.com/openai/whisper

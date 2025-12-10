@@ -1,0 +1,46 @@
+---
+sidebar_position: 0
+title: "Introduction"
+description: "Overview of digital twin simulation for humanoid robots"
+---
+
+# The Digital Twin: Gazebo and Unity
+
+This module explores how simulation enables humanoid robot development—creating digital replicas where algorithms can be tested safely and synthetic training data can be generated at scale.
+
+## What You'll Learn
+
+- **Physics Simulation**: How Gazebo models rigid body dynamics, collision detection, and forces
+- **Photorealistic Rendering**: Using Unity for visualization and perception training data
+- **Sensor Simulation**: Modeling LiDAR, depth cameras, and IMUs with realistic noise
+- **Environment Building**: Creating simulation worlds with SDF and terrain modeling
+
+## Prerequisites
+
+This module builds on:
+- [Module 1: ROS 2 Fundamentals](/docs/module-1-ros2-fundamentals) — Nodes, topics, URDF basics
+
+## Why Digital Twins?
+
+Physical humanoid robots are expensive, fragile, and potentially dangerous during development. A fall can destroy actuators worth thousands of dollars. An untested algorithm might cause injury.
+
+Digital twins solve these problems:
+- **Safe testing**: Crash the simulated robot thousands of times without damage
+- **Rapid iteration**: Test changes in seconds rather than setting up hardware
+- **Synthetic data**: Generate unlimited training images with perfect labels
+- **Reproducibility**: Share exact test conditions with colleagues worldwide
+
+The challenge is making simulation accurate enough that behaviors transfer to real robots—the "sim-to-real" problem that motivates much of this module.
+
+## Module Structure
+
+| Chapter | Topic | Key Concepts |
+|---------|-------|--------------|
+| 1 | Gazebo Physics | Physics engines, rigid body dynamics, collision |
+| 2 | Unity Rendering | Render pipelines, PBR materials, HRI simulation |
+| 3 | Sensor Simulation | Ray-casting, depth buffers, IMU noise models |
+| 4 | Environment Building | SDF worlds, terrain modeling, asset management |
+
+## The Sim-to-Real Gap
+
+Throughout this module, we address the fundamental challenge: simulated sensors and physics are never perfect. Strategies like domain randomization, realistic noise injection, and validation against real data help bridge the gap between simulation and deployment.

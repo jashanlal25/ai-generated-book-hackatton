@@ -1,0 +1,195 @@
+---
+sidebar_position: 5
+title: "Capstone: Autonomous Humanoid"
+description: "End-to-end voice-to-action scenario demonstrating complete VLA pipeline"
+---
+
+# Capstone: Autonomous Humanoid
+
+## Capstone Scenario
+
+Let's trace a complete VLA pipeline from voice command to task completion. This capstone scenario synthesizes all concepts from the module:
+
+**Command**: "Bring me the book from the shelf"
+
+**Robot**: A humanoid with:
+- Stereo cameras for perception
+- Two arms with grippers for manipulation
+- Mobile base for navigation
+- Onboard compute (NVIDIA Jetson) for inference
+
+**Environment**: Indoor room with:
+- Bookshelf against one wall
+- User seated in a chair
+- Clear path between locations
+
+## End-to-End Pipeline Walkthrough
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│              COMPLETE VLA PIPELINE: "Bring me the book"                │
+├────────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  1. VOICE INPUT                                                        │
+│     ┌──────────┐                                                       │
+│     │   User   │ ─── "Bring me the book from the shelf" ──────────▶   │
+│     └──────────┘                                                       │
+│                                                                        │
+│  2. WHISPER STT                                                        │
+│     ┌──────────┐     Audio (16kHz)      ┌──────────┐                  │
+│     │  Micro-  │ ─────────────────────▶ │ Whisper  │                  │
+│     │  phone   │                        │  (base)  │                  │
+│     └──────────┘                        └────┬─────┘                  │
+│                                              │                         │
+│                              Text: "bring me the book from the shelf" │
+│                              Confidence: 0.92                          │
+│                                              │                         │
+│  3. LLM PLANNING                             ▼                         │
+│     ┌────────────────────────────────────────────────────────────┐    │
+│     │  System: Robot planner with actions: navigate, detect,     │    │
+│     │          grasp, place, handover                            │    │
+│     │  State:  At home position, arms at rest                    │    │
+│     │  Command: "bring me the book from the shelf"               │    │
+│     └────────────────────────────────────────────────────────────┘    │
+│                                              │                         │
+│                                              ▼                         │
+│     Action Sequence:                                                   │
+│     ┌────────────────────────────────────────────────────────────┐    │
+│     │ 1. navigate(shelf)                                          │    │
+│     │ 2. detect(book)                                             │    │
+│     │ 3. grasp($detected_book_id)                                 │    │
+│     │ 4. navigate(user_location)                                  │    │
+│     │ 5. handover(book)                                           │    │
+│     └────────────────────────────────────────────────────────────┘    │
+│                                              │                         │
+│  4. ROS 2 EXECUTION                          ▼                         │
+│     ┌──────────────────────────────────────────────────────────┐      │
+│     │  Action 1: navigate(shelf)                                │      │
+│     │    → Nav2 NavigateToPose                                  │      │
+│     │    → Path planning → Locomotion → Arrival                 │      │
+│     │    → Result: SUCCESS, at shelf                            │      │
+│     │                                                           │      │
+│     │  Action 2: detect(book)                                   │      │
+│     │    → Perception DetectObjects                             │      │
+│     │    → Camera capture → YOLO inference → Bounding box       │      │
+│     │    → Result: book_id=42, pose=(0.3, 0.1, 1.2)            │      │
+│     │                                                           │      │
+│     │  Action 3: grasp(book_id=42)                             │      │
+│     │    → MoveIt 2 MoveGroupAction                            │      │
+│     │    → Approach → Grasp → Lift                              │      │
+│     │    → Result: SUCCESS, holding book                        │      │
+│     │                                                           │      │
+│     │  Action 4: navigate(user_location)                        │      │
+│     │    → Nav2 NavigateToPose                                  │      │
+│     │    → Path planning → Locomotion → Arrival                 │      │
+│     │    → Result: SUCCESS, at user                             │      │
+│     │                                                           │      │
+│     │  Action 5: handover(book)                                 │      │
+│     │    → Custom HandoverAction                                │      │
+│     │    → Extend arm → Wait for take → Release                 │      │
+│     │    → Result: SUCCESS, task complete                       │      │
+│     └──────────────────────────────────────────────────────────┘      │
+│                                              │                         │
+│  5. TASK COMPLETE                            ▼                         │
+│     ┌──────────┐      ┌──────────┐                                    │
+│     │   User   │ ◀─── │   Book   │                                    │
+│     │ (happy)  │      │          │                                    │
+│     └──────────┘      └──────────┘                                    │
+│                                                                        │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+Each stage builds on the previous:
+1. Voice input provides natural human interface
+2. Whisper converts speech to actionable text
+3. LLM decomposes intent into atomic actions
+4. ROS 2 executes actions through established interfaces
+5. Task completes with object delivered to user
+
+## Failure Points and Recovery
+
+Robust systems anticipate and handle failures at every stage:
+
+### Speech Misrecognition
+- **Detection**: Whisper confidence < 0.8
+- **Recovery**: "I heard 'bring me the book from the shelf.' Is that correct?"
+- **User response**: Confirm or correct
+- **Fallback**: Request repetition with clearer speech
+
+### Book Not Detected
+- **Detection**: Perception returns empty result for "book"
+- **Recovery strategies**:
+  1. Rotate head/torso to expand field of view
+  2. Move closer to shelf for better resolution
+  3. Ask user: "I can't see a book. Can you point to it?"
+- **Fallback**: Abort task with explanation
+
+### Grasp Failure
+- **Detection**: Gripper force feedback indicates slip or miss
+- **Recovery strategies**:
+  1. Try alternative grasp pose (different approach angle)
+  2. Use different grasp type (pinch vs. power grasp)
+  3. Reposition arm and retry
+- **Fallback**: Set book down and report failure
+
+### Path Blocked
+- **Detection**: Nav2 reports navigation failure
+- **Recovery strategies**:
+  1. Request Nav2 replan with different parameters
+  2. Wait briefly for dynamic obstacle to move
+  3. Plan through intermediate waypoints
+- **Fallback**: Ask user to clear path
+
+### Handover Failure
+- **Detection**: User doesn't take object within timeout
+- **Recovery strategies**:
+  1. Verbal prompt: "Please take the book"
+  2. Extend arm further toward user
+  3. Place object on nearby surface
+- **Fallback**: Return to home position with object
+
+## Key Takeaways
+
+This capstone demonstrates the power and complexity of VLA systems:
+
+**1. VLA Integrates Perception, Reasoning, and Action**
+The pipeline seamlessly connects speech recognition → language understanding → task planning → physical execution. No component works in isolation.
+
+**2. Two-Stage Architecture Separates Concerns**
+The LLM handles semantic planning (what to do); ROS 2 handles physical execution (how to do it). This separation enables each component to excel at its specialty.
+
+**3. Error Handling is Critical**
+The happy path is easy—failure handling is hard. Robust autonomy requires explicit recovery strategies for every failure mode.
+
+**4. Human-in-the-Loop Resolves Ambiguity**
+When the robot cannot proceed autonomously, it asks for help. Knowing when to ask is as important as knowing how to act.
+
+## Module Summary
+
+You have learned the complete VLA pipeline:
+
+| Section | Key Concepts |
+|---------|--------------|
+| **VLA Foundations** | Three-stage architecture, action as language |
+| **Whisper Voice** | Speech recognition, confidence filtering |
+| **LLM Planning** | Task decomposition, action vocabulary |
+| **ROS 2 Actions** | Action clients, behavior trees, error handling |
+| **Capstone** | End-to-end integration, failure recovery |
+
+Combined with Modules 1-3 (ROS 2 fundamentals, digital twin simulation, NVIDIA Isaac perception), you now have a comprehensive understanding of modern humanoid robot autonomy.
+
+## Self-Check Questions
+
+1. Trace the capstone command through all five pipeline stages.
+2. What are three different failure points and their recovery strategies?
+3. Why is the two-stage architecture (LLM planner + ROS executor) beneficial?
+4. When should a robot ask for human help versus attempting recovery?
+
+## References
+
+All references from previous sections apply. This capstone synthesizes:
+
+- Radford et al. (2023) — Whisper speech recognition
+- Huang et al. (2023) — LLM planning
+- Macenski et al. (2020) — Nav2 navigation
+- Brohan et al. (2023) — VLA systems

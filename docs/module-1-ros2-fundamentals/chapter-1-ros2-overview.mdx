@@ -1,0 +1,110 @@
+---
+sidebar_position: 1
+title: "ROS 2 as the Robotic Nervous System"
+description: "Understanding ROS 2 middleware fundamentals for humanoid robotics"
+---
+
+# ROS 2 as the Robotic Nervous System
+
+## Introduction: Why ROS 2?
+
+Building a humanoid robot requires solving an immense software complexity problem. A bipedal robot needs to process sensor data from dozens of joints, cameras, and IMUs while simultaneously planning movements, maintaining balance, and responding to its environment. Writing all this software from scratch would be prohibitively difficult.
+
+ROS 2 (Robot Operating System 2) provides a middleware solution that acts as the robot's "nervous system." Just as your nervous system coordinates signals between your brain, eyes, muscles, and skin, ROS 2 coordinates communication between the many software components that make a robot function. Originally developed at Willow Garage and now maintained by Open Robotics, ROS 2 builds upon the lessons learned from ROS 1 to provide real-time capabilities, improved security, and cross-platform support essential for modern humanoid robots (Macenski et al., 2022).
+
+## The ROS 2 Graph: Nodes and Communication
+
+At the heart of ROS 2 is the **computation graph**—a network of processes called nodes that communicate with each other. Think of each node as a specialist worker focused on a single task.
+
+:::info What is a Node?
+A **node** is a single-purpose process that performs one job in the robot system. Each humanoid robot might have 10-50 nodes working together, each responsible for a specific function.
+:::
+
+Consider a humanoid robot's software architecture:
+- A **perception node** processes camera images to detect objects
+- A **planning node** decides where to move based on goals and obstacles
+- A **balance node** continuously adjusts joint positions to prevent falling
+- A **joint controller node** sends motor commands to actuators
+
+These nodes operate independently but coordinate through ROS 2's communication mechanisms. This modular design allows teams to develop, test, and replace individual components without affecting the entire system. Node names follow conventions like `humanoid_perception` or `left_arm_controller`, making the system architecture self-documenting.
+
+## Topics: The Publish-Subscribe Pattern
+
+Nodes communicate primarily through **topics**—named channels that carry messages in one direction. The publish-subscribe pattern enables efficient one-to-many and many-to-one communication.
+
+A **publisher** sends messages to a topic without knowing who will receive them. A **subscriber** listens to a topic without knowing who produces the messages. This decoupling makes the system flexible and extensible.
+
+```
+┌─────────────┐    /joint_states    ┌─────────────┐
+│   Sensor    │ ─────────────────▶  │  Planning   │
+│    Node     │                     │    Node     │
+└─────────────┘                     └─────────────┘
+       │                                   │
+       │        /imu_data                  │
+       └─────────────────▶  ┌─────────────┐
+                            │   Balance   │
+                            │    Node     │
+                            └─────────────┘
+```
+
+In this diagram, the Sensor Node publishes joint states and IMU data. The Planning Node and Balance Node each subscribe to the data they need. If we later add a logging node or visualization tool, it can simply subscribe to these same topics—no changes to existing nodes required.
+
+Topics support asynchronous, continuous data flow. For a humanoid robot publishing joint states at 100 Hz, subscribers receive updates whenever new data arrives without blocking the publisher.
+
+## Services: Request-Response Communication
+
+While topics handle continuous data streams, **services** provide synchronous request-response communication. A service is like asking a question and waiting for an answer.
+
+Services are appropriate when you need:
+- A one-time action with a result (e.g., "Calibrate the left arm")
+- Confirmation that something completed (e.g., "Save current pose as home position")
+- A computation that returns data on demand (e.g., "Calculate inverse kinematics for this target")
+
+A **service server** advertises a named service and handles incoming requests. A **service client** sends requests and waits for responses. Unlike topics, this communication is blocking—the client pauses until the server responds.
+
+For humanoid robots, services might include calibration routines (`/calibrate_joints`), mode switching (`/set_walking_mode`), or kinematic queries (`/compute_inverse_kinematics`).
+
+## Quality of Service (QoS)
+
+ROS 2 communicates over DDS (Data Distribution Service), which provides configurable **Quality of Service** policies. QoS settings determine how messages are delivered, enabling trade-offs between reliability and performance.
+
+Two critical QoS settings for humanoid robots:
+
+| QoS Setting | Best-Effort | Reliable |
+|-------------|-------------|----------|
+| **Delivery** | May drop messages | Guarantees delivery |
+| **Use Case** | High-frequency sensor data | Commands, state changes |
+| **Trade-off** | Lower latency | Higher reliability |
+
+:::tip QoS Decision Guide
+Use **best-effort** for high-frequency sensor data (IMU at 1000 Hz, joint states at 100 Hz) where occasional message loss is acceptable.
+
+Use **reliable** for commands and state changes that must be delivered, such as emergency stops or gait mode changes.
+:::
+
+Additionally, **durability** settings control whether late-joining subscribers receive previously published messages. Transient-local durability is useful for configuration topics where new nodes need the current settings immediately.
+
+## Summary and Key Takeaways
+
+ROS 2 provides the communication infrastructure for complex robotic systems like humanoid robots. The key concepts are:
+
+- **Nodes**: Independent processes handling specific tasks
+- **Topics**: Publish-subscribe channels for continuous data streams
+- **Services**: Request-response communication for one-time actions
+- **QoS**: Configurable delivery guarantees trading reliability for performance
+
+These building blocks enable modular, maintainable robot software where components can be developed, tested, and replaced independently. In the next chapter, you will implement these concepts in Python using the rclpy client library.
+
+## Self-Check Questions
+
+1. What is the difference between a topic and a service in ROS 2?
+2. When would you choose best-effort QoS over reliable QoS?
+3. How many nodes might a typical humanoid robot have, and why use multiple nodes instead of one?
+4. Can multiple nodes subscribe to the same topic? Can multiple nodes publish to the same topic?
+5. What does DDS provide to ROS 2 that was not available in ROS 1?
+
+## References
+
+Macenski, S., Foote, T., Gerkey, B., Lalancette, C., & Woodall, W. (2022). Robot Operating System 2: Design, architecture, and uses in the wild. *Science Robotics*, 7(66). https://doi.org/10.1126/scirobotics.abm6074
+
+Open Robotics. (2024). *ROS 2 Humble Hawksbill documentation*. https://docs.ros.org/en/humble/

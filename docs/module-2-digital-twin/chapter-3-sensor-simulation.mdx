@@ -1,0 +1,124 @@
+---
+sidebar_position: 3
+title: "Sensor Simulation"
+description: "LiDAR, depth cameras, and IMU modeling for synthetic data generation"
+---
+
+# Sensor Simulation
+
+## Introduction: Why Simulate Sensors?
+
+Perception algorithms are only as good as the data they train on. Collecting real sensor data—annotated LiDAR scans, labeled camera images, calibrated IMU readings—is expensive and time-consuming. A single hour of autonomous driving data can cost thousands of dollars to collect and annotate.
+
+Sensor simulation provides an alternative: generate unlimited synthetic data with perfect ground truth labels. Simulators know exactly where every object is, eliminating manual annotation. They can produce edge cases—rare events that seldom occur in real data but must be handled correctly.
+
+The challenge is **domain gap**: the difference between simulated and real sensor data. A model trained purely on perfect synthetic data may fail when confronted with real sensor noise, calibration errors, and environmental conditions. Understanding sensor simulation is essential for bridging this gap.
+
+## LiDAR Simulation
+
+LiDAR (Light Detection and Ranging) sensors measure distances by timing laser pulse returns. In simulation, LiDAR is modeled using **ray-casting**: tracing virtual laser beams from the sensor origin and calculating intersections with scene geometry.
+
+:::info Ray-Casting
+**Ray-casting** traces virtual laser beams from the sensor, calculating intersection points with scene geometry to determine range measurements. Each beam returns the distance to the first surface it hits.
+:::
+
+```
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│   Physical   │───▶│   Sensor     │───▶│   Noise      │
+│   World      │    │   Model      │    │   Model      │
+└──────────────┘    └──────────────┘    └──────────────┘
+                                               │
+                                               ▼
+                          ┌──────────────────────────────┐
+                          │   Simulated Sensor Output    │
+                          │   (Point Cloud / Image / IMU)│
+                          └──────────────────────────────┘
+```
+
+Realistic LiDAR simulation must model:
+
+**Beam divergence**: Real laser beams spread over distance, creating a footprint that grows with range. Nearby objects reflect tight spots; distant surfaces reflect larger areas. This affects how edges appear in point clouds.
+
+**Return intensity**: Different surfaces reflect different amounts of light. Retroreflective road signs return strong signals; dark asphalt returns weak signals. Intensity data helps perception algorithms distinguish materials.
+
+**Multi-echo returns**: When a beam partially hits one surface and passes to another (e.g., through foliage), multiple returns occur. Advanced LiDARs report several echoes per pulse.
+
+**Noise models**: Range noise (random error in distance measurement) and angular noise (uncertainty in beam direction) must be added. Models from Manivasagam et al. (2020) show that realistic noise distributions are sensor-specific and must be characterized for each device.
+
+## Depth Camera Simulation
+
+Depth cameras provide dense range images at lower cost than LiDAR but with different characteristics and limitations.
+
+**Structured light** cameras (Intel RealSense D400 series) project an infrared pattern and use stereo vision to calculate depth:
+- Works poorly in sunlight (IR interference)
+- Fails on reflective surfaces
+- Limited range (typically 0.1-10m)
+
+**Time-of-Flight (ToF)** cameras measure phase shift of modulated IR light:
+- Better outdoor performance than structured light
+- Susceptible to multi-path interference (light bouncing multiple times)
+- Fixed range ambiguity based on modulation frequency
+
+:::info Depth Buffer
+The **depth buffer** stores the distance from the camera to each pixel's corresponding surface. Simulators can export this buffer directly as a depth image, providing efficient synthetic depth without per-ray calculations.
+:::
+
+Both technologies exhibit artifacts that must be simulated for realistic data:
+- **Flying pixels**: False depths at object edges where background and foreground mix
+- **Multi-path interference**: ToF errors when light takes multiple paths
+- **Invalid regions**: Surfaces too close, too far, or too angled
+
+Nguyen et al. (2012) characterized Kinect noise patterns, providing models that simulators use to inject realistic uncertainty.
+
+## IMU Simulation
+
+Inertial Measurement Units (IMUs) combine accelerometers (linear acceleration) and gyroscopes (angular velocity) to track robot motion. Simulating IMUs requires modeling their characteristic errors.
+
+**Bias**: A systematic offset in measurements. Even at rest, an accelerometer might read 0.02 m/s² instead of zero. Bias varies with temperature and changes slowly over time.
+
+**Noise**: Random fluctuations overlaying the true signal. Typically modeled as white Gaussian noise with density specified in the datasheet.
+
+**Drift**: For gyroscopes, small errors accumulate over time. A gyroscope with 0.01°/s bias will accumulate 36° of error per hour. This **random walk** is why IMU-only navigation diverges without external corrections.
+
+**Allan variance** is the standard method for characterizing these error sources. IMU datasheets report Allan variance parameters that simulators use to generate realistic noise profiles (Woodman, 2007).
+
+For humanoid robots, IMU simulation matters because balance controllers rely heavily on angular velocity and orientation estimates. Controllers tested on perfect IMU data may fail when confronted with real sensor drift.
+
+## Bridging the Sim-to-Real Gap
+
+Perfect simulation doesn't guarantee real-world success. Strategies for improving transfer:
+
+**Domain randomization**: Vary textures, lighting, sensor parameters, and noise levels during training. Models learn features that are robust across variations.
+
+**Realistic noise injection**: Use empirical noise models from real sensor characterization, not arbitrary Gaussian distributions.
+
+**Sensor calibration matching**: Ensure simulated camera intrinsics, LiDAR beam patterns, and IMU axes match physical sensors exactly.
+
+**Validation datasets**: Compare simulated sensor outputs against real recordings of the same scenes to quantify domain gap.
+
+## Summary and Key Takeaways
+
+Sensor simulation enables synthetic data generation at scale:
+
+- **LiDAR** uses ray-casting with noise models for beam divergence and intensity
+- **Depth cameras** leverage depth buffers with technology-specific artifact models
+- **IMUs** require bias, noise, and drift modeling based on Allan variance
+- **Domain randomization** and realistic noise improve sim-to-real transfer
+
+In the next chapter, you will learn how to build complete simulation environments where these sensors operate.
+
+## Self-Check Questions
+
+1. What is the difference between ray-casting and depth buffer approaches for depth sensing?
+2. Why do ToF cameras experience multi-path interference, and how does this affect depth accuracy?
+3. What causes gyroscope drift over time, and how is it characterized?
+4. How can domain randomization help bridge the sim-to-real gap?
+5. Why are flying pixels problematic at object edges in depth images?
+
+## References
+
+Manivasagam, S., Wang, S., Wong, K., Zeng, W., Sber, M., & Urtasun, R. (2020). LiDARsim: Realistic LiDAR simulation by leveraging the real world. *IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)*, 11167-11176.
+
+Nguyen, C. V., Izadi, S., & Lovell, D. (2012). Modeling Kinect sensor noise for improved 3D reconstruction and tracking. *2012 Second International Conference on 3D Imaging, Modeling, Processing, Visualization & Transmission*, 524-530.
+
+Woodman, O. J. (2007). An introduction to inertial navigation. *University of Cambridge Computer Laboratory Technical Report*, UCAM-CL-TR-696.

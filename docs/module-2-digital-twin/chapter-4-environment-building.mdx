@@ -1,0 +1,118 @@
+---
+sidebar_position: 4
+title: "Environment Building"
+description: "Creating simulation worlds with SDF, terrain modeling, and asset management"
+---
+
+# Environment Building
+
+## Introduction: Simulation Worlds
+
+A robot exists within an environment. Testing a humanoid's navigation requires hallways, obstacles, and terrain variations. Training a perception system needs diverse objects with different materials and lighting. Simulation environments provide these controlled, repeatable contexts.
+
+Custom environments matter because generic test worlds rarely match deployment conditions. A warehouse robot needs shelving and forklifts; a home assistant needs furniture and doorways; a search-and-rescue robot needs rubble and uneven terrain. Building appropriate environments is as important as building the robot model itself.
+
+## SDF World Files
+
+Gazebo uses **SDF (Simulation Description Format)** to describe complete simulation environments. While URDF describes robots, SDF describes entire worlds—including physics settings, lighting, terrain, and multiple models.
+
+:::info SDF (Simulation Description Format)
+**SDF** is an XML format that describes robots, objects, lights, and physics properties for Gazebo simulation environments. It extends beyond URDF to include world-level configuration that URDF cannot express.
+:::
+
+```
+<world>
+├── <physics>
+│   ├── engine (ODE/Bullet)
+│   ├── step_size
+│   └── iterations
+├── <light>
+│   ├── type (directional/point)
+│   └── intensity
+├── <model> (ground_plane)
+│   ├── <link>
+│   └── <collision>
+├── <model> (humanoid_robot)
+│   └── (imported from URDF)
+└── <plugin>
+    └── custom controllers
+```
+
+Key SDF elements:
+
+**Physics configuration**: Set the physics engine, time step, and solver iterations at the world level. All robots and objects in the world share these settings.
+
+**Lighting**: Define directional lights (sunlight), point lights (lamps), and spot lights. Lighting affects both visual rendering and simulated cameras.
+
+**Models**: Include robot URDFs, obstacle objects, furniture, and terrain. Models can be defined inline or referenced from external files.
+
+**Plugins**: Add custom behaviors—sensor noise generators, object spawners, scenario controllers. Plugins are shared libraries loaded at runtime.
+
+SDF worlds can include URDF robots through the `<include>` tag, combining Gazebo's world-building capabilities with URDF's widespread robot model ecosystem (SDFormat, 2024).
+
+## Terrain Modeling
+
+Flat ground is convenient but unrealistic. Humanoid robots must navigate uneven surfaces, slopes, and obstacles.
+
+**Heightmaps** provide a simple approach to terrain:
+- A grayscale image encodes elevation (white = high, black = low)
+- Gazebo converts the image to 3D geometry
+- Easy to create in image editors or from real elevation data
+
+**Procedural generation** creates varied terrain programmatically:
+- Noise functions (Perlin, Simplex) produce natural-looking variation
+- Useful for generating many unique training environments
+- Can be parameterized (roughness, slope distribution)
+
+**Physics mesh optimization** is critical for performance:
+- Detailed visual terrain can have millions of triangles
+- Collision meshes should be simplified aggressively
+- Level-of-detail reduces collision geometry for distant terrain
+
+The goal is terrain that challenges the robot appropriately. A walking controller needs slopes and small obstacles; a wheeled robot might need larger obstacles but smoother surfaces overall.
+
+## Asset Management
+
+Large projects accumulate many models, textures, and configuration files. Organized asset management prevents chaos.
+
+**File organization**: Group related assets by function or module:
+```
+assets/
+├── models/
+│   ├── robots/
+│   ├── furniture/
+│   └── obstacles/
+├── textures/
+├── worlds/
+└── plugins/
+```
+
+**Reusable model libraries**: Create parameterized models (different-sized boxes, various furniture pieces) that can be configured and reused across scenarios.
+
+**Gazebo Fuel**: The official model repository provides free, community-contributed models—vehicles, buildings, terrain, and more. Fuel models are quality-tested and properly configured for simulation (Open Robotics, 2024).
+
+**Version control**: Track world files and models in Git alongside robot code. This ensures reproducible simulations—anyone can recreate exact test conditions from the repository.
+
+## Summary and Key Takeaways
+
+Building effective simulation environments requires:
+
+- **SDF world files** that configure physics, lighting, and multiple models
+- **Terrain modeling** using heightmaps or procedural generation
+- **Asset management** practices that support team collaboration and reproducibility
+- **Gazebo Fuel** as a source for pre-built, tested models
+
+With physics simulation (Chapter 1), rendering capabilities (Chapter 2), sensor modeling (Chapter 3), and environment building (this chapter), you now have the foundations for creating digital twins. Module 3 will introduce NVIDIA Isaac Sim, which integrates these capabilities with GPU-accelerated perception and AI training.
+
+## Self-Check Questions
+
+1. What is the relationship between SDF and URDF? When would you use each?
+2. How do heightmaps create terrain geometry from grayscale images?
+3. Why is physics mesh optimization important for terrain collision?
+4. What is Gazebo Fuel, and how does it help simulation development?
+
+## References
+
+SDFormat. (2024). *SDFormat specification*. http://sdformat.org/spec
+
+Open Robotics. (2024). *Gazebo Sim documentation*. https://gazebosim.org/docs

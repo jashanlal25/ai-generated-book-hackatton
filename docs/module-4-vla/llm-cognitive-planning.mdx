@@ -1,0 +1,183 @@
+---
+sidebar_position: 3
+title: "LLM Cognitive Planning"
+description: "Task decomposition and action planning with large language models"
+---
+
+# LLM Cognitive Planning
+
+## LLMs as Robot Planners
+
+Large language models possess remarkable world knowledge—they understand that cups hold liquid, books belong on shelves, and kitchens contain refrigerators. This knowledge, acquired from billions of text documents, can be leveraged for robot task planning.
+
+The key insight is to use a **frozen LLM as a semantic planner**, not as a motor controller. The LLM understands high-level intent ("fetch water") and decomposes it into discrete actions, but it does not directly control joint angles or motor currents. This two-stage approach—LLM for planning, robot systems for execution—combines the generalization of language models with the precision of traditional robotics (Huang et al., 2023).
+
+Benefits of LLM-based planning:
+
+**Zero-shot generalization**: Ask for objects or tasks never seen during robot training. The LLM's world knowledge fills the gaps.
+
+**Natural language interface**: No need to learn robot-specific command syntax. Speak naturally and the LLM interprets intent.
+
+**Flexible reasoning**: LLMs handle ambiguity, context, and multi-step dependencies that rule-based planners struggle with.
+
+## Task Decomposition
+
+The core capability is **task decomposition**: converting high-level commands into sequences of atomic robot actions.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                 TASK DECOMPOSITION FLOW                          │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│   User Command:  "Fetch the water bottle"                        │
+│                           │                                      │
+│                           ▼                                      │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                    LLM PLANNER                           │   │
+│   │                                                          │   │
+│   │  System: "You are a robot planner. Given a command,     │   │
+│   │           output a JSON action sequence."                │   │
+│   │                                                          │   │
+│   │  Context: Robot at position (0,0), facing north         │   │
+│   │           Known locations: kitchen, living_room          │   │
+│   │                                                          │   │
+│   │  Command: "Fetch the water bottle"                       │   │
+│   │                                                          │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                           │                                      │
+│                           ▼                                      │
+│   Output:                                                        │
+│   {                                                              │
+│     "actions": [                                                 │
+│       {"type": "navigate", "target": "kitchen"},                │
+│       {"type": "detect", "object": "water_bottle"},             │
+│       {"type": "grasp", "object_id": "$detected_id"},           │
+│       {"type": "navigate", "target": "user_location"},          │
+│       {"type": "handover"}                                       │
+│     ]                                                            │
+│   }                                                              │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**State grounding** is essential. The LLM must know:
+- Current robot position and configuration
+- Known objects and their locations
+- Available capabilities (can grasp, can navigate, cannot fly)
+
+Without state context, the LLM might plan impossible actions. Including state in the prompt grounds the plan in physical reality.
+
+## Action Vocabulary
+
+An **action vocabulary** defines the set of atomic actions the robot can execute. Each action maps to a specific robot capability:
+
+| Action | Description | Parameters |
+|--------|-------------|------------|
+| `navigate` | Move to location | target: location_id or (x, y) |
+| `detect` | Find object in scene | object: object_class |
+| `grasp` | Pick up detected object | object_id: ID from detection |
+| `place` | Put held object down | location: surface or position |
+| `handover` | Give object to human | — |
+| `say` | Speak to user | message: text string |
+
+The vocabulary constrains LLM output to executable actions. The LLM cannot hallucinate actions the robot cannot perform.
+
+**Structured output** enforces this constraint. The prompt instructs the LLM to output JSON matching a schema, which downstream systems validate before execution.
+
+## Prompt Engineering Best Practices
+
+Effective prompts for robot planning follow these patterns (Liang et al., 2023):
+
+**System prompt**: Define the robot's role and constraints
+```
+You are a humanoid robot planner. Given a user command and robot state,
+output a JSON action sequence using only these actions: navigate, detect,
+grasp, place, handover, say.
+```
+
+**Few-shot examples**: Show 2-3 example decompositions to establish the pattern
+```
+Command: "Pick up the cup"
+State: Robot at home position, cup visible on table
+Output: [{"type": "detect", "object": "cup"}, {"type": "grasp", "object_id": "$id"}]
+```
+
+**State context**: Include current robot state, known objects, and environment
+```
+Current position: living room
+Held object: none
+Detected objects: [{"id": 1, "class": "book", "location": "table"}]
+```
+
+**Output format**: Force structured JSON output
+```
+Respond ONLY with valid JSON. No explanation or other text.
+```
+
+## Example Decompositions
+
+The specification requires at least three concrete examples:
+
+### Example 1: "Pick up the red cup"
+```json
+{
+  "actions": [
+    {"type": "detect", "object": "red_cup"},
+    {"type": "navigate", "target": "$detected_location"},
+    {"type": "grasp", "object_id": "$detected_id"}
+  ]
+}
+```
+
+### Example 2: "Put the book on the shelf"
+```json
+{
+  "actions": [
+    {"type": "detect", "object": "book"},
+    {"type": "grasp", "object_id": "$detected_id"},
+    {"type": "navigate", "target": "shelf"},
+    {"type": "place", "location": "shelf"}
+  ]
+}
+```
+
+### Example 3: "Bring me water"
+```json
+{
+  "actions": [
+    {"type": "navigate", "target": "kitchen"},
+    {"type": "detect", "object": "water_bottle"},
+    {"type": "grasp", "object_id": "$detected_id"},
+    {"type": "navigate", "target": "user_location"},
+    {"type": "handover"}
+  ]
+}
+```
+
+Each example shows how a natural language command becomes a concrete sequence of robot-executable actions. The `$detected_id` and `$detected_location` placeholders are filled at runtime from perception results.
+
+## Summary and Key Takeaways
+
+LLM-based cognitive planning enables natural robot command:
+
+- **Frozen LLM as planner** leverages world knowledge without motor control
+- **Task decomposition** converts high-level commands to atomic actions
+- **Action vocabulary** constrains output to executable capabilities
+- **Prompt engineering** includes system role, examples, state context, and format
+
+With plans generated, the next step is executing them through ROS 2 action interfaces.
+
+## Self-Check Questions
+
+1. Why use a frozen LLM as a planner rather than training end-to-end?
+2. What is state grounding, and why does it matter for planning?
+3. How does an action vocabulary prevent hallucinated actions?
+4. What are the four key elements of an effective robot planning prompt?
+
+## References
+
+Huang, W., Abbeel, P., Pathak, D., & Mordatch, I. (2023). Language models as zero-shot planners: Extracting actionable knowledge for embodied agents. *International Conference on Machine Learning*, 9118-9147.
+
+Liang, J., Huang, W., Xia, F., Xu, P., Hausman, K., Ichter, B., Florence, P., & Zeng, A. (2023). Code as policies: Language model programs for embodied control. *IEEE International Conference on Robotics and Automation (ICRA)*, 9493-9500.
+
+Ahn, M., Brohan, A., Brown, N., Chebotar, Y., Cortes, O., David, B., ... & Zeng, A. (2022). Do as I can, not as I say: Grounding language in robotic affordances. *arXiv preprint arXiv:2204.01691*.

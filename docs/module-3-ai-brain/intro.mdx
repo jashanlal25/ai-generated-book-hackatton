@@ -1,0 +1,32 @@
+---
+sidebar_position: 0
+title: "Introduction"
+description: "Overview of the AI-Robot Brain module covering NVIDIA Isaac tools"
+---
+
+# The AI-Robot Brain: NVIDIA Isaac
+
+This module explores how NVIDIA's Isaac platform forms the "AI brain" of a humanoid robot—the perception, localization, and navigation systems that enable autonomous operation.
+
+## What You'll Learn
+
+- **Isaac Sim**: Photorealistic simulation and synthetic data generation for training AI perception systems
+- **Isaac ROS & VSLAM**: GPU-accelerated visual SLAM for real-time robot localization
+- **Nav2**: ROS 2 navigation stack for path planning, with special attention to bipedal humanoid challenges
+- **Integration**: How these components work together as an end-to-end perception-to-action pipeline
+
+## Prerequisites
+
+This module builds on concepts from:
+- [Module 1: ROS 2 Fundamentals](/docs/module-1-ros2-fundamentals) — Nodes, topics, services
+- [Module 2: The Digital Twin](/docs/module-2-digital-twin) — Physics simulation, sensor modeling
+
+## The AI Brain Metaphor
+
+Consider how your own brain processes the world:
+- **Eyes capture images** → Isaac Sim generates training images, real cameras provide runtime input
+- **Visual cortex interprets what you see** → Isaac ROS accelerates perception inference
+- **Spatial awareness tells you where you are** → VSLAM builds maps and tracks position
+- **Motor planning decides how to move** → Nav2 plans paths and controls locomotion
+
+This module shows how these computational analogs work together to give a humanoid robot autonomous capabilities.

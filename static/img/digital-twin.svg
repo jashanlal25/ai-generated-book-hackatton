@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <!-- Digital Twin / Simulation Icon -->
+  <!-- Real robot (left) -->
+  <rect x="25" y="60" width="50" height="80" rx="8" fill="#3b82f6"/>
+  <circle cx="50" cy="85" r="12" fill="white"/>
+  <circle cx="44" cy="82" r="3" fill="#1e40af"/>
+  <circle cx="56" cy="82" r="3" fill="#1e40af"/>
+  <rect x="40" y="92" width="20" height="4" rx="2" fill="#1e40af"/>
+  <!-- Robot body details -->
+  <rect x="35" y="105" width="30" height="25" rx="4" fill="#1e40af"/>
+  <rect x="30" y="115" width="8" height="20" rx="2" fill="#60a5fa"/>
+  <rect x="62" y="115" width="8" height="20" rx="2" fill="#60a5fa"/>
+
+  <!-- Mirror/sync arrows -->
+  <path d="M85 100 L115 100" stroke="#60a5fa" stroke-width="3" stroke-dasharray="5,3"/>
+  <polygon points="115,95 125,100 115,105" fill="#60a5fa"/>
+  <polygon points="85,95 75,100 85,105" fill="#60a5fa"/>
+
+  <!-- Digital twin (right - with grid overlay) -->
+  <rect x="125" y="60" width="50" height="80" rx="8" fill="#3b82f6" opacity="0.6"/>
+  <circle cx="150" cy="85" r="12" fill="white" opacity="0.8"/>
+  <circle cx="144" cy="82" r="3" fill="#1e40af"/>
+  <circle cx="156" cy="82" r="3" fill="#1e40af"/>
+  <rect x="140" y="92" width="20" height="4" rx="2" fill="#1e40af"/>
+  <rect x="135" y="105" width="30" height="25" rx="4" fill="#1e40af" opacity="0.7"/>
+  <!-- Grid overlay for digital effect -->
+  <line x1="125" y1="75" x2="175" y2="75" stroke="white" stroke-width="0.5" opacity="0.5"/>
+  <line x1="125" y1="90" x2="175" y2="90" stroke="white" stroke-width="0.5" opacity="0.5"/>
+  <line x1="125" y1="105" x2="175" y2="105" stroke="white" stroke-width="0.5" opacity="0.5"/>
+  <line x1="125" y1="120" x2="175" y2="120" stroke="white" stroke-width="0.5" opacity="0.5"/>
+  <line x1="140" y1="60" x2="140" y2="140" stroke="white" stroke-width="0.5" opacity="0.5"/>
+  <line x1="160" y1="60" x2="160" y2="140" stroke="white" stroke-width="0.5" opacity="0.5"/>
+</svg>

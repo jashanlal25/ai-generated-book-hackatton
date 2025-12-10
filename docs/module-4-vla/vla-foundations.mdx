@@ -1,0 +1,116 @@
+---
+sidebar_position: 1
+title: "VLA Foundations"
+description: "Understanding Vision-Language-Action architecture and key models"
+---
+
+# VLA Foundations
+
+## What are VLA Systems?
+
+**Vision-Language-Action (VLA)** systems are multimodal AI models that process images and text to generate robot actions. They represent a paradigm shift from traditional robotics, where perception, reasoning, and control were separate systems with handcrafted interfaces.
+
+The key insight driving VLA research is that **actions can be treated as another language**. Large language models (LLMs) excel at predicting the next token in a sequence—whether that token represents a word, a number, or a robot joint angle. By training on robot demonstration data alongside text and images, models learn to "speak" the language of robot movement.
+
+This convergence enables capabilities impossible with traditional approaches:
+- Natural language commands ("pick up the red cup") directly produce motor actions
+- Visual context informs action generation without explicit object models
+- Zero-shot generalization to novel objects and scenarios
+
+Historically, robot systems had separate vision pipelines (detect objects, estimate poses), planning modules (decide what to do), and control systems (move motors). VLA unifies these into a single learned model that maps directly from pixels and words to actions (Brohan et al., 2023).
+
+## The Three-Stage Architecture
+
+VLA models follow a characteristic three-stage architecture:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                  VLA THREE-STAGE PIPELINE                      │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│    ┌────────────┐    ┌────────────┐    ┌────────────┐         │
+│    │   Camera   │    │   Text     │    │            │         │
+│    │   Image    │    │  Command   │    │            │         │
+│    └─────┬──────┘    └─────┬──────┘    │            │         │
+│          │                 │           │            │         │
+│          ▼                 │           │            │         │
+│    ┌────────────┐          │           │            │         │
+│    │  Vision    │          │           │            │         │
+│    │  Encoder   │          │           │   Action   │         │
+│    │ (ResNet/   │          │           │  Decoder   │         │
+│    │   ViT)     │          │           │            │         │
+│    └─────┬──────┘          │           │            │         │
+│          │                 │           │            │         │
+│          ▼                 ▼           │            │         │
+│    ┌─────────────────────────┐         │            │         │
+│    │    Language Model       │         │            │         │
+│    │    (LLM Backbone)       │─────────┼────────────│         │
+│    │  Fuses vision + text    │         │            │         │
+│    └─────────────────────────┘         │            │         │
+│                    │                   │            │         │
+│                    ▼                   ▼            │         │
+│              ┌───────────────────────────────┐     │         │
+│              │      Action Output            │     │         │
+│              │  (Joint angles, velocities)   │     │         │
+│              └───────────────────────────────┘     │         │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**Stage 1: Vision Encoder**
+The vision encoder processes RGB camera images into dense feature representations. Common architectures include:
+- **ResNet**: Convolutional networks pretrained on ImageNet
+- **ViT (Vision Transformer)**: Patch-based transformers that process images like token sequences
+
+The encoder extracts spatial features—what objects are present, where they are, their shapes and colors—encoding this information for the language model.
+
+**Stage 2: Language Model**
+The language model serves as the reasoning core. It receives:
+- Visual embeddings from the encoder
+- Text embeddings from the command tokenizer
+
+The LLM fuses these modalities, understanding both "what I see" and "what I should do." Its pretrained knowledge of the world (object properties, spatial relationships, task sequences) informs the output.
+
+**Stage 3: Action Decoder**
+The action decoder maps from LLM embeddings to robot-specific outputs:
+- Joint angles for each actuator
+- End-effector velocities
+- Gripper open/close commands
+
+The decoder is typically trained on robot demonstration data, learning the mapping from semantic intent to physical execution.
+
+## Key VLA Models
+
+Several influential models demonstrate VLA capabilities:
+
+**RT-2 (Google, 2023)**: A 55-billion parameter model that treats actions as text tokens. Given an image and language instruction, RT-2 outputs action tokens alongside text, achieving strong generalization across manipulation tasks.
+
+**OpenVLA (Stanford, 2024)**: An open-source 7-billion parameter model that outperforms RT-2-X on standard benchmarks while being accessible to researchers. OpenVLA demonstrates that smaller, open models can achieve competitive performance (Kim et al., 2024).
+
+**Octo (Berkeley, 2023)**: Uses diffusion models for action generation, providing multimodal action distributions rather than single predictions. Useful when multiple valid actions exist.
+
+**GR00T N1 (NVIDIA, 2024)**: Designed specifically for humanoid robots, with architecture choices suited to bipedal manipulation and locomotion.
+
+## Summary and Key Takeaways
+
+VLA systems represent a new paradigm for robot intelligence:
+
+- **Unified architecture** replaces separate perception/planning/control pipelines
+- **Actions as language** enables LLM-based reasoning about robot behavior
+- **Three-stage design**: Vision encoder → Language model → Action decoder
+- **Open models** like OpenVLA democratize access to VLA capabilities
+
+In the next section, you will learn how speech recognition enables natural language input to VLA systems.
+
+## Self-Check Questions
+
+1. What is the key insight that enables LLMs to generate robot actions?
+2. What role does the vision encoder play in VLA architecture?
+3. Why is zero-shot generalization valuable for robot systems?
+4. What distinguishes OpenVLA from RT-2?
+
+## References
+
+Brohan, A., Brown, N., Carbajal, J., Chebotar, Y., Chen, X., Choromanski, K., ... & Zitkovich, B. (2023). RT-2: Vision-language-action models transfer web knowledge to robotic control. *arXiv preprint arXiv:2307.15818*.
+
+Kim, M. J., Pertsch, K., Kabbe, S., Finn, C., Levine, S., & Liang, P. (2024). OpenVLA: An open-source vision-language-action model. *arXiv preprint arXiv:2406.09246*.

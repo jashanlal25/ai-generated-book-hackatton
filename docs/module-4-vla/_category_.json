@@ -1,0 +1,8 @@
+{
+  "label": "Module 4: Vision-Language-Action",
+  "position": 4,
+  "link": {
+    "type": "generated-index",
+    "description": "Learn how VLA systems integrate speech recognition, LLM planning, and ROS 2 action execution for autonomous humanoids."
+  }
+}

@@ -1,0 +1,251 @@
+---
+sidebar_position: 3
+title: "Describing Humanoid Robots with URDF"
+description: "Defining robot structure using the Unified Robot Description Format"
+---
+
+# Describing Humanoid Robots with URDF
+
+## Introduction to Robot Description
+
+Before a robot can be visualized, simulated, or controlled, its physical structure must be formally described. The **Unified Robot Description Format (URDF)** is an XML-based specification that defines the links, joints, sensors, and physical properties of a robot.
+
+URDF descriptions are essential for:
+- **Visualization**: Rendering the robot in tools like RViz
+- **Simulation**: Loading the robot into physics simulators like Gazebo
+- **Motion planning**: Computing collision-free trajectories with MoveIt
+- **Kinematics**: Calculating forward and inverse kinematics
+
+A humanoid robot URDF might contain hundreds of elements describing the torso, head, arms, legs, hands, and sensors. This chapter teaches the fundamental building blocks you need to construct such descriptions.
+
+## Links: The Building Blocks
+
+A **link** represents a rigid body segment of the robot—a piece that moves as a single unit. Each humanoid body part (torso, upper arm, forearm, thigh, etc.) is a separate link.
+
+Every link requires a unique name and can include three optional elements:
+
+```xml
+<link name="torso_link">
+  <visual>...</visual>     <!-- How it looks (rendering) -->
+  <collision>...</collision> <!-- Simplified shape for physics -->
+  <inertial>...</inertial>  <!-- Mass and moments of inertia -->
+</link>
+```
+
+:::tip Visual vs. Collision Geometry
+**Visual geometry** can be detailed meshes for appearance—complex shapes with textures make the robot look realistic.
+
+**Collision geometry** should be simple primitives (box, cylinder, sphere) for efficient physics computation. Simulators perform many collision checks per second; simple shapes are much faster.
+:::
+
+The `<inertial>` element specifies mass and the inertia tensor, which are critical for accurate dynamics simulation. Without correct inertial properties, simulated humanoid robots will not balance or move realistically.
+
+## Joints: Connecting the Parts
+
+A **joint** defines how two links connect and move relative to each other. Each joint specifies:
+- A **parent link** (the link closer to the robot's base)
+- A **child link** (the link further from the base)
+- The **type** of motion allowed
+- The **origin** (position and orientation offset)
+- The **axis** of motion (for rotating/sliding joints)
+- Optional **limits** on position, velocity, and effort
+
+### Joint Types for Humanoid Robots
+
+| Joint Type | Motion | Humanoid Use Case |
+|------------|--------|-------------------|
+| `revolute` | Rotation with limits | Shoulder, elbow, knee, ankle, hip |
+| `fixed` | No motion | Sensor mounts, rigid connections |
+| `prismatic` | Linear translation | Linear actuators (rare in humanoids) |
+| `continuous` | Unlimited rotation | Wheels (not typical for bipeds) |
+
+Most humanoid joints are **revolute**—they rotate around a single axis within defined limits. An elbow joint, for example, rotates from 0° (straight) to approximately 135° (fully bent) but cannot rotate further.
+
+```xml
+<joint name="right_elbow_joint" type="revolute">
+  <parent link="right_upper_arm_link"/>
+  <child link="right_forearm_link"/>
+  <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+  <axis xyz="1 0 0"/>
+  <limit lower="0" upper="2.35" effort="30" velocity="2.0"/>
+</joint>
+```
+
+The `<limit>` element constrains:
+- **lower/upper**: Position limits in radians
+- **effort**: Maximum force/torque in Newtons or Newton-meters
+- **velocity**: Maximum angular velocity in radians per second
+
+## Building a Humanoid Torso
+
+Let's construct a simplified humanoid torso with one arm. This URDF demonstrates the essential patterns you will expand when modeling complete robots.
+
+```
+                    torso_link
+                        │
+          ┌─────────────┼─────────────┐
+          │             │             │
+    left_shoulder  head_mount   right_shoulder
+    (revolute)      (fixed)      (revolute)
+          │                           │
+    left_upper_arm             right_upper_arm
+          │                           │
+    left_elbow                  right_elbow
+    (revolute)                  (revolute)
+          │                           │
+    left_forearm               right_forearm
+```
+
+Here is a complete, valid URDF file implementing the right arm portion:
+
+```xml title="humanoid_torso.urdf"
+<?xml version="1.0"?>
+<robot name="humanoid_torso">
+
+  <!-- Base Link: Torso -->
+  <link name="torso_link">
+    <visual>
+      <geometry>
+        <box size="0.4 0.2 0.6"/>
+      </geometry>
+      <material name="gray">
+        <color rgba="0.5 0.5 0.5 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <geometry>
+        <box size="0.4 0.2 0.6"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="10.0"/>
+      <inertia ixx="0.5" ixy="0" ixz="0" iyy="0.5" iyz="0" izz="0.2"/>
+    </inertial>
+  </link>
+
+  <!-- Right Shoulder Joint -->
+  <joint name="right_shoulder_joint" type="revolute">
+    <parent link="torso_link"/>
+    <child link="right_upper_arm_link"/>
+    <origin xyz="0.25 0 0.25" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-3.14" upper="3.14" effort="50" velocity="2.0"/>
+  </joint>
+
+  <!-- Right Upper Arm -->
+  <link name="right_upper_arm_link">
+    <visual>
+      <origin xyz="0 0 -0.15" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.04" length="0.3"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.2 0.2 0.8 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.15" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.04" length="0.3"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="2.0"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.005"/>
+    </inertial>
+  </link>
+
+  <!-- Right Elbow Joint -->
+  <joint name="right_elbow_joint" type="revolute">
+    <parent link="right_upper_arm_link"/>
+    <child link="right_forearm_link"/>
+    <origin xyz="0 0 -0.3" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="0" upper="2.35" effort="30" velocity="2.0"/>
+  </joint>
+
+  <!-- Right Forearm -->
+  <link name="right_forearm_link">
+    <visual>
+      <origin xyz="0 0 -0.125" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.035" length="0.25"/>
+      </geometry>
+      <material name="blue">
+        <color rgba="0.2 0.2 0.8 1.0"/>
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 -0.125" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.035" length="0.25"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.5"/>
+      <inertia ixx="0.008" ixy="0" ixz="0" iyy="0.008" iyz="0" izz="0.003"/>
+    </inertial>
+  </link>
+
+</robot>
+```
+
+This URDF creates:
+- A rectangular torso (0.4m × 0.2m × 0.6m)
+- A shoulder joint allowing full rotation
+- An upper arm (30cm cylinder)
+- An elbow joint limited to 0-135° (0-2.35 radians)
+- A forearm (25cm cylinder)
+
+## Validating Your URDF
+
+ROS 2 provides tools to verify URDF syntax and structure:
+
+```bash
+# Install URDF tools (if not present)
+sudo apt install liburdfdom-tools
+
+# Validate URDF structure
+check_urdf humanoid_torso.urdf
+```
+
+Expected output:
+```
+robot name is: humanoid_torso
+---------- Successfully Parsed XML ---------------
+root Link: torso_link has 1 child(ren)
+    child(1):  right_upper_arm_link
+        child(1):  right_forearm_link
+```
+
+Common validation errors:
+- **Missing parent/child link**: Ensure every joint references existing links
+- **XML syntax errors**: Check for unclosed tags and proper attribute quoting
+- **Duplicate names**: Every link and joint must have a unique name
+
+## Summary and Extensions
+
+You have learned the fundamental URDF elements for describing humanoid robots:
+
+| Element | Purpose | Required |
+|---------|---------|----------|
+| `<robot>` | Root container | Yes |
+| `<link>` | Rigid body segment | Yes (minimum 1) |
+| `<joint>` | Connection between links | If more than 1 link |
+| `<visual>` | Appearance for rendering | No |
+| `<collision>` | Physics shape | No |
+| `<inertial>` | Mass properties | No (but needed for simulation) |
+
+**Next steps for expanding your URDF skills:**
+- **Xacro**: Use macros and parameters to reduce repetition in large URDFs
+- **Meshes**: Import detailed 3D models for visual geometry
+- **Sensors**: Add camera, IMU, and LiDAR descriptions
+- **Simulation**: Load your URDF into Gazebo (covered in Module 2)
+
+The complete humanoid_torso.urdf file is available in the code examples for you to experiment with and extend.
+
+## References
+
+Open Robotics. (2024). *URDF specification*. http://wiki.ros.org/urdf/XML
+
+Open Robotics. (2024). *ROS 2 Humble Hawksbill documentation*. https://docs.ros.org/en/humble/

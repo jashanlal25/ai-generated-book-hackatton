@@ -21,7 +21,7 @@ function HomepageHeader() {
           <Link
             className={styles.heroButton}
             to="/docs/intro">
-            Start Learning
+            Start  new Learning
             <span className={styles.heroButtonArrow}>→</span>
           </Link>
         </div>

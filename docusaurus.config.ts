@@ -14,6 +14,11 @@ const config: Config = {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
   },
 
+  // Custom fields for runtime configuration
+  customFields: {
+    apiBaseUrl: process.env.API_BASE_URL || 'http://localhost:8000/api/v1',
+  },
+
   // Set the production url of your site here
   url: 'https://your-docusaurus-site.example.com',
   // Set the /<baseUrl>/ pathname under which your site is served
@@ -66,6 +71,33 @@ const config: Config = {
         },
       } satisfies Preset.Options,
     ],
+  ],
+
+  plugins: [
+    function configureWebpack() {
+      return {
+        name: 'custom-webpack-config',
+        configureWebpack() {
+          return {
+            devServer: {
+              proxy: [
+                {
+                  context: ['/api'],
+                  target: 'http://localhost:8000',
+                  changeOrigin: true,
+                },
+                {
+                  context: ['/chatkit'],
+                  target: 'http://localhost:8000',
+                  changeOrigin: true,
+                  pathRewrite: {'^/chatkit': '/api/chatkit'},
+                },
+              ],
+            },
+          };
+        },
+      };
+    },
   ],
 
   themeConfig: {

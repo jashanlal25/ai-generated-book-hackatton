@@ -2,7 +2,8 @@
  * API service for chatbot communication with FastAPI backend
  */
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';
+// const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000';  // Local development
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://jashanlal-rag-chat-boy.hf.space';  // Production (HF Space)
 
 // Rate limiting configuration
 const RATE_LIMIT_CONFIG = {

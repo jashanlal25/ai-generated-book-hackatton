@@ -46,7 +46,8 @@ export default function FloatingChatWidget() {
 
     try {
       // Call the real backend API (same as /chatbot page)
-      const API_BASE_URL = 'http://localhost:8000';
+      // const API_BASE_URL = 'http://localhost:8000';
+      const API_BASE_URL = 'https://jashanlal-rag-chat-boy.hf.space';
 
       const response = await fetch(`${API_BASE_URL}/api/v1/chat`, {
         method: 'POST',

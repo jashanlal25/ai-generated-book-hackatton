@@ -46,7 +46,8 @@ export default function Chatbot(): ReactNode {
 
     try {
       // Call the real backend API
-      const API_BASE_URL = 'http://localhost:8000';
+      // const API_BASE_URL = 'http://localhost:8000';  // Local development
+      const API_BASE_URL = 'https://jashanlal-rag-chat-boy.hf.space';  // Production (HF Space)
 
       const response = await fetch(`${API_BASE_URL}/api/v1/chat`, {
         method: 'POST',
